@@ -56,6 +56,90 @@ func TestTimeField(t *testing.T) {
 	}
 }
 
+func TestTraceField(t *testing.T) {
+	l := &testLogger{}
+	c := &Core{Logger: l}
+
+	fields := []zapcore.Field{zap.String("logging.googleapis.com/trace", "traceidhere")}
+	if err := c.Write(zapcore.Entry{}, fields); err != nil {
+		t.Fatal(err)
+	}
+	payload, ok := l.entries[0].Payload.(map[string]interface{})
+	if !ok {
+		t.Fatal("Couldn't unpack payload")
+	}
+	_, ok = payload["logging.googleapis.com/trace"]
+	if ok {
+		t.Error("trace field must be removed")
+	}
+	if l.entries[0].Trace != "traceidhere" {
+		t.Error("trace id must be present in log entry")
+	}
+}
+
+func TestSpanField(t *testing.T) {
+	l := &testLogger{}
+	c := &Core{Logger: l}
+
+	fields := []zapcore.Field{zap.String("logging.googleapis.com/spanId", "spanidhere")}
+	if err := c.Write(zapcore.Entry{}, fields); err != nil {
+		t.Fatal(err)
+	}
+	payload, ok := l.entries[0].Payload.(map[string]interface{})
+	if !ok {
+		t.Fatal("Couldn't unpack payload")
+	}
+	_, ok = payload["logging.googleapis.com/spanId"]
+	if ok {
+		t.Error("span field must be removed")
+	}
+	if l.entries[0].SpanID != "spanidhere" {
+		t.Error("span id must be present in log entry")
+	}
+}
+
+func TestSampledFieldSet(t *testing.T) {
+	l := &testLogger{}
+	c := &Core{Logger: l}
+
+	fields := []zapcore.Field{zap.Bool("logging.googleapis.com/trace_sampled", true)}
+	if err := c.Write(zapcore.Entry{}, fields); err != nil {
+		t.Fatal(err)
+	}
+	payload, ok := l.entries[0].Payload.(map[string]interface{})
+	if !ok {
+		t.Fatal("Couldn't unpack payload")
+	}
+	_, ok = payload["logging.googleapis.com/trace_sampled"]
+	if ok {
+		t.Error("trace_sampled field must be removed")
+	}
+	if !l.entries[0].TraceSampled {
+		t.Error("trace_sampled expected")
+	}
+}
+
+func TestSampledFieldNotSet(t *testing.T) {
+	l := &testLogger{}
+	c := &Core{Logger: l}
+
+	fields := []zapcore.Field{zap.Bool("logging.googleapis.com/trace_sampled", false)}
+	if err := c.Write(zapcore.Entry{}, fields); err != nil {
+		t.Fatal(err)
+	}
+	payload, ok := l.entries[0].Payload.(map[string]interface{})
+	if !ok {
+		t.Fatal("Couldn't unpack payload")
+	}
+	_, ok = payload["logging.googleapis.com/trace_sampled"]
+	if ok {
+		t.Error("trace_sampled field must be removed")
+	}
+	if l.entries[0].TraceSampled {
+		t.Error("trace_sampled expected")
+	}
+}
+
 func TestCoreWrite(t *testing.T) {
 	l := &testLogger{}
 	ts := time.Now()

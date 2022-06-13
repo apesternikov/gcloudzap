@@ -28,11 +28,12 @@ package gcloudzap // import "github.com/dhduvall/gcloudzap"
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"runtime"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	gcl "cloud.google.com/go/logging"
 	"go.uber.org/zap"
@@ -58,6 +59,16 @@ const (
 	// SkipType is the zap field type that ought to (though needn't) be used
 	// with a field with key SkipKey.
 	SkipType = zapcore.SkipType
+
+	// TraceKey is the payload field key to use for trace field
+	// in the LogEntry object.
+	TraceKey = "logging.googleapis.com/trace"
+	// TraceKey is the payload field key to use for spanId field
+	// in the LogEntry object.
+	SpanKey = "logging.googleapis.com/spanId"
+	// TraceKey is the payload field key to use for traceSampled field
+	// in the LogEntry object.
+	TraceSampledKey = "logging.googleapis.com/trace_sampled"
 )
 
 var (
@@ -311,8 +322,23 @@ func (c *Core) Write(ze zapcore.Entry, newFields []zapcore.Field) error {
 	insertID, ok := payload[InsertIDKey].(string)
 	if ok && insertID != "" {
 		entry.InsertID = insertID
+		delete(payload, InsertIDKey)
 	}
-	delete(payload, InsertIDKey)
+
+	if value, ok := payload[TraceKey].(string); ok && value != "" {
+		entry.Trace = value
+		delete(payload, TraceKey)
+	}
+
+	if value, ok := payload[SpanKey].(string); ok && value != "" {
+		entry.SpanID = value
+		delete(payload, SpanKey)
+	}
+
+	if value, ok := payload[TraceSampledKey].(bool); ok {
+		entry.TraceSampled = value
+		delete(payload, TraceSampledKey)
+	}
 
 	if caller, ok := payload[CallerKey]; ok {
 		if tracer, ok := caller.(stackTracer); ok {
